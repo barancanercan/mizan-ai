@@ -1,0 +1,4 @@
+.env
+.venv
+.idea
+api-test.py
