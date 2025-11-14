@@ -4,21 +4,14 @@
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_community.llms import Ollama  # ✅ GEMINI YERİNE OLLAMA
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from sklearn.metrics.pairwise import cosine_similarity
-from dotenv import load_dotenv
-import numpy as np
-import os
+from langchain_community.vectorstores import Chroma
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 import warnings
 
 warnings.filterwarnings("ignore")
-load_dotenv()
-
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in .env file!")
 
 ############################################
 ############# 2- READ TO PDF ###############
@@ -27,7 +20,6 @@ if not GEMINI_API_KEY:
 print("PDF yükleniyor...")
 loader = PyPDFLoader("data/chp.pdf")
 pages = loader.load()
-text = "".join([page.page_content for page in pages])
 print(f"{len(pages)} sayfa yüklendi")
 
 ############################################
@@ -35,15 +27,14 @@ print(f"{len(pages)} sayfa yüklendi")
 ############################################
 
 print("Metin chunk'lara bölünüyor...")
-chunks = []
-chunk_size = 512
-overlap = 50
 
-for i in range(0, len(text), chunk_size - overlap):
-    chunk = text[i:i + chunk_size]
-    if chunk.strip():
-        chunks.append(chunk)
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=512,
+    chunk_overlap=50,
+    length_function=len
+)
 
+chunks = text_splitter.split_documents(pages)
 print(f"{len(chunks)} chunk oluşturuldu")
 
 ############################################
@@ -57,61 +48,50 @@ embeddings = HuggingFaceEmbeddings(
 print("Embedding modeli hazır")
 
 ############################################
-############## 5- EMBEDDING ###############
+####### 5- CREATE VECTOR DATABASE ##########
 ############################################
 
-print("Dökümanlar vektörize ediliyor...")
-chunk_embeddings = embeddings.embed_documents(chunks)
-chunk_embeddings = np.array(chunk_embeddings)  # NumPy array'e çevir
-print(f"{len(chunk_embeddings)} chunk vektörize edildi")
+print("Vector database oluşturuluyor...")
+vectorstore = Chroma.from_documents(
+    documents=chunks,
+    embedding=embeddings,
+    persist_directory="./chroma_db"
+)
+print("Vector database hazır")
 
 ############################################
 ########### 6- ASKING QUESTION #############
 ############################################
 
 print("\n" + "="*60)
-print("CHP Parti Tüzüğü - Soru-Cevap Sistemi")
+print("CHP Parti Tüzüğü - Soru-Cevap Sistemi (LOKAL QWEN)")
 print("="*60)
-question = input("\n❓ Sorunuz: ")
+question = input("\nSorunuz: ")
 print(f"Aranıyor: '{question}'")
 
 ############################################
-####### 7- VECTORIZE QUESTION ##############
-############################################
-
-question_embedding = embeddings.embed_query(question)
-question_embedding = np.array(question_embedding).reshape(1, -1)
-
-############################################
-######### 8- CALCULATE SIMILARITY ##########
+######### 7- SIMILARITY SEARCH #############
 ############################################
 
 print("Benzerlik hesaplanıyor...")
-# Cosine similarity kullan (normalize edilmiş)
-similarities = cosine_similarity(chunk_embeddings, question_embedding).flatten()
 
-############################################
-########## 9- MOST SIMILAR 3 DOC ###########
-############################################
-
-# En benzer 3 chunk'ı al
 top_k = 3
-most_similar_indices = np.argsort(similarities)[-top_k:][::-1]
+relevant_docs = vectorstore.similarity_search_with_score(question, k=top_k)
 
-relevant_chunks = [chunks[idx] for idx in most_similar_indices]
+relevant_chunks = [doc.page_content for doc, score in relevant_docs]
 context = "\n\n".join(relevant_chunks)
 
-print(f"✅ En benzer {top_k} bölüm bulundu")
-print(f"📈 Benzerlik skorları: {similarities[most_similar_indices]}")
+scores = [score for doc, score in relevant_docs]
+print(f"En benzer {top_k} bölüm bulundu")
+print(f"Benzerlik skorları: {scores}")
 
 ############################################
-################ 10- GEMINI ################
+############ 8- LOKAL QWEN 2.5 #############
 ############################################
 
-print("Gemini'ye gönderiliyor...")
+print("Lokal Qwen modeline gönderiliyor...")
 
 prompt_template = PromptTemplate.from_template("""
-
 Sen CHP (Cumhuriyet Halk Partisi) hakkında bilgi veren bir asistansın.
 
 Aşağıdaki CHP Parti Tüzüğü bölümüne göre soruyu yanıtla:
@@ -129,21 +109,22 @@ Daha fazla bilgi için https://chp.org.tr/ adresini ziyaret edebilirsiniz."
 Yanıt:
 """)
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",  #
-    temperature=0,
-    google_api_key=GEMINI_API_KEY  #
+# ✅ LOKAL QWEN MODEL
+llm = Ollama(
+    model="qwen2.5:7b-instruct-q4_K_M",
+    temperature=0
 )
 
 ############################################
-################ 11- CHAIN #################
+################ 9- CHAIN ##################
 ############################################
 
 chain = prompt_template | llm | StrOutputParser()
 
 ############################################
-################# 12- RUN ##################
+################ 10- RUN ###################
 ############################################
+
 response = chain.invoke({"context": context, "question": question})
 print("\n" + "="*60)
 print("Cevap:")

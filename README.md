@@ -1,298 +1,358 @@
-# 🗳️ Politika Asistanı | Turkish Politics AI Assistant
+# 🇹🇷 Turkish Government Intelligence Hub
 
-<div align="center">
+**Türkiye'deki siyasi partilerin tüzüklerini analiz eden, tamamen lokal çalışan RAG tabanlı soru-cevap sistemi**
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![LangChain](https://img.shields.io/badge/LangChain-🦜-green.svg)](https://langchain.com/)
-[![Gemini](https://img.shields.io/badge/Gemini-API-orange.svg)](https://ai.google.dev/)
-[![Status](https://img.shields.io/badge/status-in%20development-yellow.svg)]()
-
-**Türkiye'nin İlk Konuşan Parti Platformu**
-
-[Demo](#-demo) • [Özellikler](#-özellikler) • [Mimari](#-teknik-mimari) • [Kurulum](#-kurulum) • [Roadmap](#-roadmap)
-
-</div>
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![LangChain](https://img.shields.io/badge/LangChain-0.3+-green.svg)](https://www.langchain.com/)
+[![Qwen](https://img.shields.io/badge/LLM-Qwen2.5--7B-orange.svg)](https://ollama.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## 📖 Proje Hakkında
+## 📋 İçindekiler
 
-**Politika Asistanı**, vatandaşların siyasi partilerin politikalarını anlamasını ve karşılaştırmasını sağlayan yapay zeka destekli bir platformdur. Her siyasi parti, kendi AI temsilcisi aracılığıyla vatandaşlarla konuşur.
-
-### 💡 Motivasyon
-
-- 🗳️ **Seçmen Bilgilenme Sorunu**: Vatandaşlar partilerin politikalarını anlamakta zorlanıyor
-- 📚 **Erişilebilirlik**: 400+ sayfalık parti programlarını okumak pratik değil
-- 🤝 **Karşılaştırma Zorluğu**: Partilerin aynı konudaki görüşlerini yan yana görmek zor
-- 🇹🇷 **Türkçe AI Açığı**: Türk siyasetine özel, konuşma dilinde çalışan AI yok
-
-### 🎯 Çözüm
-
-Konuşma tabanlı AI asistanları ile parti politikalarını erişilebilir kılmak. Her parti, kendi resmi dokümanları ile beslenen bir AI temsilcisine sahip.
+- [Özellikler](#-özellikler)
+- [Teknoloji Stack](#-teknoloji-stack)
+- [Kurulum](#-kurulum)
+- [Kullanım](#-kullanım)
+- [Performans](#-performans)
+- [Proje Yapısı](#-proje-yapısı)
+- [Katkıda Bulunma](#-katkıda-bulunma)
+- [Lisans](#-lisans)
 
 ---
 
-## ✨ Özellikler
+## 🎯 Özellikler
 
-### 🤖 Multi-Agent Sistem
-- **Her Parti Bir Agent**: AKP, CHP, MHP, İYİ Parti AI temsilcileri
-- **Parti Tüzükleri & Programlar**: RAG sistemi ile beslenmiş knowledge base
-- **Konuşma Tabanlı**: Doğal dilde soru-cevap
-
-### 💬 Kullanım Senaryoları
-
-```
-Kullanıcı: "CHP'nin ekonomi politikası nedir?"
-AI: [CHP parti programından ilgili bölümleri analiz ederek cevap verir]
-
-Kullanıcı: "AKP ve CHP'nin eğitim politikalarını karşılaştır"
-AI: [Her iki partinin politikalarını yan yana sunar]
-
-Kullanıcı: "Hangi partiler LGBT haklarını destekliyor?"
-AI: [İlgili parti programlarından bilgi sentezler]
-```
-
-### 🎨 Planlanan Özellikler (v1.0)
-- ✅ Multi-party RAG system
-- ✅ Turkish language optimization
-- ⏳ Streamlit UI
-- ⏳ Comparative analysis mode
-- ⏳ Source citation & transparency
-- ⏳ Conversation memory
-- ⏳ Policy timeline tracking
+- ✅ **Tamamen Lokal:** İnternet bağlantısı gerektirmez, veriler bilgisayarınızda kalır
+- ✅ **Ücretsiz:** API key veya ödeme gerektirmez
+- ✅ **Türkçe Optimizasyonlu:** Türkçe embedding ve LLM modelleri kullanır
+- ✅ **GPU Hızlandırmalı:** NVIDIA GPU desteği ile hızlı yanıt süreleri
+- ✅ **RAG (Retrieval-Augmented Generation):** Doğru ve kaynak tabanlı cevaplar
+- ✅ **Kolay Genişletilebilir:** Yeni parti tüzükleri kolayca eklenebilir
 
 ---
 
-## 🏗️ Teknik Mimari
+## 🛠️ Teknoloji Stack
 
-### Tech Stack
+### Core Framework
+- **LangChain** - LLM orchestration ve RAG pipeline
+- **Qwen2.5-7B-Instruct** - Lokal LLM (Alibaba)
+- **Ollama** - Lokal LLM inference server
 
-```
-┌─────────────────────────────────────────────────┐
-│                  FRONTEND                        │
-│         Streamlit (MVP) / React (v2.0)          │
-└─────────────────────────────────────────────────┘
-                        ↓
-┌─────────────────────────────────────────────────┐
-│              ORCHESTRATION LAYER                 │
-│    LangGraph (Multi-Agent Coordination)         │
-│    - Party Agent Router                          │
-│    - Comparison Agent                            │
-│    - Citation Agent                              │
-└─────────────────────────────────────────────────┘
-                        ↓
-┌─────────────────────────────────────────────────┐
-│                 RAG PIPELINE                     │
-│    LangChain + Gemini 1.5 Flash                 │
-│    - Document Loaders                            │
-│    - Text Splitters (Turkish-optimized)         │
-│    - Prompt Templates                            │
-└─────────────────────────────────────────────────┘
-                        ↓
-┌─────────────────────────────────────────────────┐
-│              VECTOR DATABASE                     │
-│    Chroma (MVP) / Pinecone (Production)         │
-│    - Turkish Embeddings (BGE-M3)                │
-│    - Per-party collections                       │
-└─────────────────────────────────────────────────┘
-                        ↓
-┌─────────────────────────────────────────────────┐
-│                DATA SOURCES                      │
-│    - Parti Tüzükleri (PDF)                      │
-│    - Seçim Beyannameleri                         │
-│    - Parti Programları                           │
-│    - Resmi Açıklamalar (gelecekte)              │
-└─────────────────────────────────────────────────┘
-```
+### Embeddings & Vector DB
+- **HuggingFace Transformers** - Türkçe text embeddings
+- **ChromaDB** - Vector database
 
-### Core Technologies
-
-| Component | Technology | Why? |
-|-----------|-----------|------|
-| **LLM** | Gemini 1.5 Flash | Turkish language support, fast, cost-effective |
-| **Embeddings** | BGE-M3 Turkish | Best Turkish semantic understanding |
-| **Vector DB** | Chroma → Pinecone | Easy prototyping → Production scale |
-| **Framework** | LangChain | Industry standard RAG framework |
-| **Orchestration** | LangGraph | Multi-agent coordination |
-| **Frontend** | Streamlit → React | Rapid MVP → Production UI |
-| **Deployment** | Docker + AWS | Scalable, production-ready |
+### Document Processing
+- **PyPDF** - PDF döküman parsing
+- **RecursiveCharacterTextSplitter** - Intelligent text chunking
 
 ---
 
-## 🚀 Kurulum
+## 📦 Kurulum
 
-### Prerequisites
+### Gereksinimler
+
+- **Python 3.10+**
+- **NVIDIA GPU** (önerilen, CPU'da da çalışır)
+- **6GB+ VRAM** (RTX 3050 veya üzeri)
+- **10GB+ Disk Alanı**
+
+### Adım 1: Ollama Kurulumu
+
+1. Ollama'yı indirin ve kurun:
+   ```
+   https://ollama.com/download/windows
+   ```
+
+2. Qwen2.5 modelini indirin:
+   ```bash
+   ollama pull qwen2.5:7b-instruct-q4_K_M
+   ```
+
+3. Model durumunu kontrol edin:
+   ```bash
+   ollama list
+   ```
+
+### Adım 2: Python Ortamını Hazırlayın
+
+1. Repository'yi klonlayın:
+   ```bash
+   git clone https://github.com/barancanercan/turkish-government-intelligence-hub.git
+   cd turkish-government-intelligence-hub
+   ```
+
+2. Virtual environment oluşturun:
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate  # Windows
+   # source .venv/bin/activate  # Linux/Mac
+   ```
+
+3. Gereksinimleri yükleyin:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+---
+
+## 🚀 Kullanım
+
+### Temel Kullanım
 
 ```bash
-Python 3.10+
-Git
-Gemini API Key
+python rag_qwen_local.py
 ```
 
-### Installation
-
-```bash
-# 1. Clone repository
-git clone https://github.com/barancanercan/Turkish-Government-Intelligence-Hub.git
-cd Turkish-Government-Intelligence-Hub
-
-# 2. Create virtual environment
-python -m venv .venv
-.venv\Scripts\activate  # Windows
-# source .venv/bin/activate  # macOS/Linux
-
-# 3. Install dependencies
-pip install -r requirements.txt
-
-# 4. Configure environment variables
-cp .env.example .env
-# Edit .env and add your GEMINI_API_KEY
-
-# 5. Run MVP
-python main.py
-```
-
-### Environment Variables
-
-```bash
-# .env
-GEMINI_API_KEY=your_gemini_api_key_here
-# PINECONE_API_KEY=your_pinecone_key  # For production
-```
-
----
-
-## 📂 Proje Yapısı
+Program çalıştığında soru sorabilirsiniz:
 
 ```
-Turkish-Government-Intelligence-Hub/
-├── data/
-│   ├── chp.pdf                 # CHP Parti Tüzüğü
-│   ├── akp.pdf                 # AKP Parti Tüzüğü (gelecek)
-│   └── ...
-├── src/
-│   ├── agents/                 # Multi-agent logic (gelecek)
-│   ├── rag/                    # RAG pipeline (gelecek)
-│   └── utils/                  # Helper functions
-├── chroma_db/                  # Vector database (local)
-├── main.py                     # Current MVP
-├── requirements.txt
-├── .env.example
-└── README.md
-```
-
----
-
-## 🎯 Roadmap
-
-### Phase 1: MVP (Current - Week 1-2) ✅
-- [x] Single party RAG system (CHP)
-- [x] Basic Q&A functionality
-- [x] Turkish embedding model integration
-- [x] Chroma vector database
-- [ ] Streamlit UI
-
-### Phase 2: Multi-Party System (Week 3-4)
-- [ ] Add 3+ party agents (AKP, MHP, İYİ Parti)
-- [ ] LangGraph multi-agent orchestration
-- [ ] Comparative analysis feature
-- [ ] Source citation system
-
-### Phase 3: Advanced Features (Week 5-6)
-- [ ] Conversation memory
-- [ ] Advanced prompt engineering
-- [ ] LoRA fine-tuning for party-specific language
-- [ ] Performance optimization (<800ms latency)
-
-### Phase 4: Production (Week 7-8)
-- [ ] Migrate to Pinecone
-- [ ] FastAPI backend
-- [ ] React frontend
-- [ ] Docker containerization
-- [ ] AWS deployment
-- [ ] Monitoring & logging
-
-### Future Vision
-- [ ] Real-time policy updates
-- [ ] Integration with official party APIs
-- [ ] Mobile app
-- [ ] Multilingual support (English, Kurdish)
-- [ ] Election prediction analytics
-
----
-
-## 📊 Demo
-
-> 🚧 **Demo coming soon!** Streamlit UI in development.
-
-### Current CLI Demo
-
-```bash
-$ python main.py
-
 ============================================================
-CHP Parti Tüzüğü - Soru-Cevap Sistemi
+CHP Parti Tüzüğü - Soru-Cevap Sistemi (LOKAL QWEN)
 ============================================================
 
-Sorunuz: Parti genel başkanı nasıl seçilir?
+Sorunuz: CHP genel başkanı nasıl seçilir?
+```
 
-Aranıyor: 'Parti genel başkanı nasıl seçilir?'
+### Python Kodu ile Kullanım
+
+```python
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.llms import Ollama
+from langchain_community.vectorstores import Chroma
+
+# 1. PDF'i yükle
+loader = PyPDFLoader("data/chp.pdf")
+pages = loader.load()
+
+# 2. Embedding modeli
+embeddings = HuggingFaceEmbeddings(
+    model_name="nezahatkorkmaz/turkce-embedding-bge-m3"
+)
+
+# 3. Vector database
+vectorstore = Chroma.from_documents(
+    documents=pages,
+    embedding=embeddings,
+    persist_directory="./chroma_db"
+)
+
+# 4. Lokal LLM
+llm = Ollama(model="qwen2.5:7b-instruct-q4_K_M")
+
+# 5. Soru sor
+question = "CHP'nin kuruluş tarihi nedir?"
+docs = vectorstore.similarity_search(question, k=3)
+context = "\n".join([doc.page_content for doc in docs])
+
+response = llm.invoke(f"Context: {context}\n\nSoru: {question}")
+print(response)
+```
+
+---
+
+## ⚡ Performans
+
+### Test Sistemi
+- **GPU:** NVIDIA RTX 3060 6GB
+- **CPU:** 4 cores
+- **RAM:** 9GB
+- **OS:** Windows 10
+
+### Benchmark Sonuçları
+
+| Metrik | Değer |
+|--------|-------|
+| İlk Token Süresi | 0.5-1s |
+| Token/Saniye | 25-30 |
+| Ortalama Cevap Süresi | 3-8s |
+| VRAM Kullanımı | ~4GB |
+| Embedding Süresi | ~2s (328 chunks) |
+| Vector Search | <0.5s |
+
+### Örnek Çalıştırma
+
+```
+PDF yükleniyor...     
+140 sayfa yüklendi
+Metin chunk'lara bölünüyor...                               
+328 chunk oluşturuldu                                      
+Türkçe Embedding Modeli yükleniyor...            
+Embedding modeli hazır                                
+Vector database oluşturuluyor...   
+Vector database hazır
+
+Sorunuz: CHP genel başkanı nasıl seçilir? 
 Benzerlik hesaplanıyor...
-✅ En benzer 3 bölüm bulundu
-Gemini'ye gönderiliyor...
+En benzer 3 bölüm bulundu
+Benzerlik skorları: [0.77, 0.77, 0.77]
+Lokal Qwen modeline gönderiliyor...
 
-============================================================
 Cevap:
-============================================================
-Parti Genel Başkanı, Kurultay tarafından gizli oyla ve...
+CHP genel başkanı, kurultayda gizli oyla ve üye tam sayısının 
+salt çoğunluğuyla seçilir. İlk iki oylamada sonuç alınamazsa, 
+üçüncü oylamanın en çok oy alan adayı seçilir.
 ```
+
+---
+
+## 📁 Proje Yapısı
+
+```
+turkish-government-intelligence-hub/
+├── data/
+│   ├── chp.pdf              # CHP Parti Tüzüğü
+│   ├── akp.pdf              # (Eklenecek)
+│   └── mhp.pdf              # (Eklenecek)
+├── chroma_db/               # Vector database (otomatik oluşur)
+├── rag_qwen_local.py        # Ana uygulama
+├── requirements.txt         # Python bağımlılıkları
+├── KURULUM.md              # Detaylı kurulum rehberi
+└── README.md               # Bu dosya
+```
+
+---
+
+## 🔧 Yapılandırma
+
+### Chunk Boyutlarını Ayarlama
+
+```python
+text_splitter = RecursiveCharacterTextSplitter(
+    chunk_size=512,        # Chunk boyutu (256-1024 arası önerilir)
+    chunk_overlap=50,      # Chunk overlap (10-20% chunk_size)
+    length_function=len
+)
+```
+
+### LLM Parametrelerini Ayarlama
+
+```python
+llm = Ollama(
+    model="qwen2.5:7b-instruct-q4_K_M",
+    temperature=0,         # Yaratıcılık (0.0-1.0)
+    num_predict=512,       # Maksimum token
+    num_ctx=4096          # Context window
+)
+```
+
+### Farklı Model Kullanma
+
+```bash
+# Daha küçük model (daha hızlı)
+ollama pull qwen2.5:3b-instruct-q4_K_M
+
+# Daha büyük model (daha kaliteli)
+ollama pull qwen2.5:14b-instruct-q4_K_M
+```
+
+Kod'da:
+```python
+llm = Ollama(model="qwen2.5:3b-instruct-q4_K_M")  # Küçük model
+```
+
+---
+
+## 🐛 Sorun Giderme
+
+### Model Bulunamıyor Hatası
+
+```bash
+# Modeli kontrol et
+ollama list
+
+# Modeli tekrar indir
+ollama pull qwen2.5:7b-instruct-q4_K_M
+```
+
+### GPU Kullanılmıyor
+
+```bash
+# GPU durumunu kontrol et
+nvidia-smi
+
+# Ollama'yı restart et (Windows Services)
+```
+
+### VRAM Yetersiz
+
+```python
+# Daha küçük model kullan
+llm = Ollama(model="qwen2.5:3b-instruct-q4_K_M")
+
+# Veya chunk sayısını azalt
+top_k = 2  # 3 yerine 2 chunk kullan
+```
+
+---
+
+## 🚧 Gelecek Özellikler
+
+- [ ] Multi-party comparison (Partileri karşılaştırma)
+- [ ] Streamlit web UI
+- [ ] Conversation history (Sohbet geçmişi)
+- [ ] Export to PDF/DOCX
+- [ ] Voice interface (Sesli soru-cevap)
+- [ ] Fine-tuned Turkish political model
 
 ---
 
 ## 🤝 Katkıda Bulunma
 
-Bu proje açık kaynak değildir, ancak feedback'lere açıktır. Öneriniz varsa issue açabilirsiniz.
+Katkılarınızı bekliyoruz! Pull request'lerinizi gönderin veya issue açın.
+
+### Katkı Adımları
+
+1. Fork yapın
+2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
+3. Commit'leyin (`git commit -m 'Add amazing feature'`)
+4. Push yapın (`git push origin feature/amazing-feature`)
+5. Pull Request açın
 
 ---
 
-## 📜 License
+## 📄 Lisans
 
-Bu proje özel lisans altındadır. Ticari kullanım için izin gereklidir.
-
----
-
-## 👨‍💻 Geliştirici
-
-**Baran Can Ercan**  
-Senior Data Scientist | AI/ML Engineer
-
-- 🌐 [LinkedIn](https://www.linkedin.com/in/barancanercan)
-- 📝 [Medium](https://barancanercan.medium.com)
-- 📧 barancanercan@gmail.com
-- 💼 [GitHub](https://github.com/barancanercan)
+Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına bakın.
 
 ---
 
-## 🙏 Acknowledgments
+## 👤 Geliştirici
 
-- **Turkish NLP Community** - Turkish embedding models
-- **LangChain** - RAG framework
-- **Google Gemini Team** - API access
-- **Ankara Metropolitan Municipality** - Domain expertise in public sector AI
+**Baran Can Ercan**
+
+- 🌐 LinkedIn: [@barancanercan](https://www.linkedin.com/in/barancanercan)
+- 📝 Medium: [@barancanercan](https://barancanercan.medium.com)
+- 📧 Email: barancanercan@gmail.com
+- 🐙 GitHub: [@barancanercan](https://github.com/barancanercan)
 
 ---
 
-## ⚖️ Disclaimer
+## 🙏 Teşekkürler
 
-Bu proje, siyasi partilerin resmi görüşlerini temsil etmez. AI yanıtları, parti dokümanlarına dayansa da hata içerebilir. Resmi bilgi için partilerin web sitelerini ziyaret edin.
+- [Ollama](https://ollama.com/) - Lokal LLM inference
+- [LangChain](https://www.langchain.com/) - RAG framework
+- [Alibaba Qwen Team](https://qwenlm.github.io/) - Qwen2.5 model
+- [HuggingFace](https://huggingface.co/) - Turkish embeddings
+- [ChromaDB](https://www.trychroma.com/) - Vector database
+
+---
+
+## 📊 İstatistikler
+
+![GitHub stars](https://img.shields.io/github/stars/barancanercan/turkish-government-intelligence-hub?style=social)
+![GitHub forks](https://img.shields.io/github/forks/barancanercan/turkish-government-intelligence-hub?style=social)
+![GitHub issues](https://img.shields.io/github/issues/barancanercan/turkish-government-intelligence-hub)
 
 ---
 
 <div align="center">
 
-**Türkiye'de Siyasi Katılımı Artıran AI Platformu**
+**"Verilerle Aydınlanan Siyaset"** 🏛️
 
-⭐ Star this repo if you find it useful!
+Made with ❤️ by [Baran Can Ercan](https://github.com/barancanercan)
 
 </div>
