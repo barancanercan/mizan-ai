@@ -1,0 +1,25 @@
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+
+# Local data & logs
+vector_db/
+logs/
+*.log
+.git/
+.github/
+
+# Sensitive info
+.env
+hashes.json
+
+# IDE config
+.vscode/
+.idea/

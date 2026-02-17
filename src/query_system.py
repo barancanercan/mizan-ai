@@ -1,304 +1,244 @@
 """
 Turkish Government Intelligence Hub - Query System
-Ana soru-cevap programı - Hazır vector DB'leri kullanır
-
-Usage:
-    python query_system.py              # Tüm partilerle çalış
-    python query_system.py --party CHP  # Sadece CHP ile çalış
+Hybrid LLM (Ollama + HuggingFace) with İYİ Normalization
 """
 
 import argparse
-import sys
-from typing import Dict
+from typing import Any, List, Tuple
 
-from langchain_ollama import OllamaLLM  # ✅ Yeni paket (deprecation fix)
-from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from langchain_chroma import Chroma  # ✅ Yeni paket (deprecation fix)
+from langchain_chroma import Chroma
+from langchain_core.documents import Document
 
 import config
 import utils
+from core.parties import normalize_party_name, normalize_parties_list
+from core.llm_setup import (
+    setup_ollama_chain,
+    setup_huggingface_config,
+    query_with_huggingface,
+    query_with_gemini,
+    create_llm_handler,
+)
+from core.streaming import handle_stream_response
 
-# ============================================
-# LLM SETUP
-# ============================================
-
-def setup_llm_chain(party: str):
-    """
-    LLM ve prompt chain'i hazırla
-
-    Args:
-        party: Parti kısa adı
-
-    Returns:
-        Chain: LangChain chain
-    """
-    utils.logger.info(f"LLM chain hazırlanıyor ({party})...")
-
-    try:
-        # Prompt template
-        prompt_template = PromptTemplate.from_template(
-            config.SYSTEM_PROMPTS[party]
-        )
-
-        # LLM
-        llm = OllamaLLM(
-            model=config.LLM_MODEL,
-            temperature=config.LLM_TEMPERATURE
-        )
-
-        # Test connection
-        utils.logger.info("Ollama bağlantısı test ediliyor...")
-        llm.invoke("test", num_predict=5)
-        utils.logger.info("✅ Ollama bağlantısı başarılı")
-
-        # Chain
-        chain = prompt_template | llm | StrOutputParser()
-
-        return chain
-
-    except ConnectionError:
-        utils.logger.error("❌ Ollama server'a bağlanılamadı!")
-        utils.logger.error("💡 Çözüm: Yeni terminal'de 'ollama serve' çalıştırın")
-        raise
-    except Exception as e:
-        utils.logger.error(f"❌ LLM setup hatası: {str(e)}")
-        raise
 
 # ============================================
 # QUERY FUNCTION
 # ============================================
 
+
 def ask_question(
     question: str,
     vectorstore: Chroma,
-    chain,
-    party: str
-) -> str:
+    llm_handler: Any,
+    party: str,
+    llm_type: str,
+    stream: bool = False,
+) -> Tuple[Any, List[Document]]:
     """
-    Soru sor ve cevap al
-
-    Args:
-        question: Kullanıcı sorusu
-        vectorstore: Vector database
-        chain: LLM chain
-        party: Parti adı
-
-    Returns:
-        str: LLM cevabı
+    Vektör veritabanında arama yapar ve LLM kullanarak soruyu yanıtlar (Stream destekli).
     """
-    # Benzer dökümanları bul
-    context, scores = utils.search_similar_docs(vectorstore, question)
 
-    # Skor kontrolü
-    if scores[0] < config.SIMILARITY_THRESHOLD:
-        utils.logger.warning(f"⚠️ Düşük benzerlik skoru: {scores[0]:.3f}")
-        return f"Bu konuda {party} parti tüzüğünde yeterli bilgi bulamadım. Sorunuzu daha açık sorabilir misiniz?"
+    normalized_party = normalize_party_name(party)
 
-    # LLM'e gönder
-    utils.logger.info("LLM cevap üretiyor...")
-    response = chain.invoke({
-        "context": context,
-        "question": question
-    })
+    context, scores, docs = utils.search_similar_docs(
+        vectorstore, question, filter_metadata={"party": normalized_party}
+    )
 
-    return response
+    if not scores or scores[0] < config.SIMILARITY_THRESHOLD:
+        msg = f"Bu konuda {party} parti tüzüğünde yeterli bilgi bulamadım. Lütfen daha açık bir soru sorun."
+        if stream:
+
+            def gen():
+                yield msg
+
+            return gen(), docs
+        return msg, docs
+
+    system_prompt = config.SYSTEM_PROMPTS.get(
+        normalized_party, config.SYSTEM_PROMPTS.get(party)
+    )
+    full_prompt = system_prompt.format(context=context, question=question)
+
+    try:
+        if llm_type == "ollama":
+            if stream:
+                return llm_handler.stream({"context": context, "question": question}), docs
+            return llm_handler.invoke({"context": context, "question": question}), docs
+        elif llm_type == "gemini":
+            return query_with_gemini(llm_handler, full_prompt, stream=stream), docs
+        else:
+            return query_with_huggingface(full_prompt, llm_handler, stream=stream), docs
+
+    except Exception as e:
+        utils.logger.error(f"Cevap üretme hatası: {str(e)}")
+        raise
+
+
+def stream_response(response_gen: Any, llm_type: str) -> str:
+    """Stream response'ı işle ve string olarak döndür."""
+    result = ""
+    for chunk in response_gen:
+        result += handle_stream_response(chunk, llm_type)
+    return result
+
 
 # ============================================
 # SINGLE PARTY MODE
 # ============================================
 
-def single_party_mode(party: str):
-    """
-    Tek parti modu - sadece bir parti ile çalış
 
-    Args:
-        party: Parti kısa adı
-    """
+def single_party_mode(party: str):
+    """Tek parti modu"""
+    party = normalize_party_name(party)
+
     utils.print_header(f"🤖 {party} Soru-Cevap Sistemi")
     utils.print_party_info(party)
 
-    # Vector DB kontrolü
-    db_path = config.PARTY_VECTOR_DBS[party]
-    if not db_path.exists():
-        utils.logger.error(f"❌ {party} için vector database bulunamadı!")
-        utils.logger.error("💡 Önce veri hazırlama yapın: python prepare_data.py")
+    db_path = config.UNIFIED_VECTOR_DB
+    if not db_path or not db_path.exists():
+        utils.logger.error("❌ Unified vector database bulunamadı!")
+        utils.logger.error("💡 Çalıştır: python prepare_data.py")
         return
 
-    # Embedding modeli
-    utils.logger.info("Embedding modeli yükleniyor...")
     embeddings = utils.load_embeddings()
-
-    # Vector DB yükle
     vectorstore = utils.load_vectorstore(db_path, embeddings)
 
-    # LLM chain hazırla
-    chain = setup_llm_chain(party)
+    llm_handler, llm_type = create_llm_handler(party)
+
+    if llm_type == "none":
+        utils.logger.error("❌ Hiç LLM kullanılamıyor!")
+        return
 
     utils.logger.info("✅ Sistem hazır!")
-
-    # Soru-cevap döngüsü
     utils.print_header("💬 Soru-Cevap Başlıyor")
-    print("Çıkmak için 'q', 'quit' veya 'exit' yazın\n")
+    print("Çıkmak için: q\n")
 
     while True:
-        question = input(f"\n{config.PARTY_INFO[party]['color']} Sorunuz: ").strip()
+        question = input(f"{config.PARTY_INFO[party]['hex_color']} Sorunuz: ").strip()
 
-        # Çıkış kontrolü
-        if question.lower() in ['q', 'quit', 'exit', 'çıkış']:
-            print("\n👋 Görüşmek üzere!")
+        if question.lower() in ["q", "quit", "exit"]:
+            print("👋 Hoşça kalın!")
             break
-
         if not question:
-            print("⚠️ Lütfen bir soru yazın.")
             continue
 
-        # Cevap üret
         try:
-            response = ask_question(question, vectorstore, chain, party)
+            print(f"\n{'='*60}\n🤖 Cevap: ", end="", flush=True)
+            response_gen, source_docs = ask_question(
+                question, vectorstore, llm_handler, party, llm_type, stream=True
+            )
 
-            print("\n" + "="*60)
-            print("Cevap:")
-            print("="*60)
-            print(response)
-            print("="*60)
+            for chunk in response_gen:
+                content = handle_stream_response(chunk, llm_type)
+                print(content, end="", flush=True)
 
+            if source_docs:
+                print(f"\n\n📚 Kaynaklar: {[doc.metadata.get('page', '?') for doc in source_docs]}")
+
+            print(f"\n{'='*60}\n")
         except Exception as e:
-            utils.logger.error(f"❌ Hata: {str(e)}")
-            print("⚠️ Bir hata oluştu. Lütfen tekrar deneyin.")
+            print(f"⚠️ Hata: {str(e)}\n")
+
 
 # ============================================
 # MULTI PARTY MODE
 # ============================================
 
-def multi_party_mode():
-    """
-    Çoklu parti modu - kullanıcı hangi partiye sormak istediğini seçer
-    """
-    utils.print_header("🤖 Çok Partili Soru-Cevap Sistemi")
 
-    # Hazır partileri kontrol et
-    prepared_parties = utils.get_prepared_parties()
+def multi_party_mode():
+    """Çoklu parti modu"""
+    utils.print_header("🤖 Çoklu Parti Q&A")
+
+    prepared_parties = normalize_parties_list(utils.get_prepared_parties())
 
     if not prepared_parties:
-        utils.logger.error("❌ Hiç hazır vector database yok!")
-        utils.logger.error("💡 Önce veri hazırlama yapın: python prepare_data.py")
+        utils.logger.error("❌ Hiç hazır DB yok! Çalıştır: python prepare_data.py")
         return
 
-    utils.logger.info(f"✅ Hazır partiler: {', '.join(prepared_parties)}")
+    utils.logger.info(f"✅ Hazır: {', '.join(prepared_parties)}")
 
-    # Embedding modeli (tüm partiler için aynı)
-    utils.logger.info("Embedding modeli yükleniyor...")
     embeddings = utils.load_embeddings()
+    db_path = config.UNIFIED_VECTOR_DB
+    if not db_path.exists():
+        utils.logger.error("❌ Unified DB yok! Çalıştır: python prepare_data.py")
+        return
 
-    # Tüm partilerin vector DB'lerini yükle
-    vectorstores: Dict[str, Chroma] = {}
+    vectorstore = utils.load_vectorstore(db_path, embeddings)
 
-    for party in prepared_parties:
-        db_path = config.PARTY_VECTOR_DBS[party]
-        vectorstores[party] = utils.load_vectorstore(db_path, embeddings)
+    llm_handler, llm_type = create_llm_handler(prepared_parties[0])
 
-    # Tüm partilerin LLM chain'lerini hazırla
-    chains: Dict[str, any] = {}
+    if llm_type == "none":
+        utils.logger.error("❌ LLM yok!")
+        return
 
-    for party in prepared_parties:
-        chains[party] = setup_llm_chain(party)
-
-    utils.logger.info("✅ Tüm sistemler hazır!")
-
-    # Ana döngü
+    utils.logger.info("✅ Sistem hazır!")
     utils.print_header("💬 Soru-Cevap Başlıyor")
-    print("\nKomutlar:")
-    print("  - Parti değiştir: /chp, /akp, /mhp, /iyi")
-    print("  - Çıkış: q, quit, exit")
-    print("\nVarsayılan parti: CHP\n")
+    print(f"Partiler: {', '.join(prepared_parties)}")
+    print("Komutlar: /chp, /akp, /mhp, /dem, /iyi | q=çıkış\n")
 
     current_party = "CHP" if "CHP" in prepared_parties else prepared_parties[0]
 
     while True:
-        # Parti göstergesi
-        party_color = config.PARTY_INFO[current_party]['color']
-        question = input(f"\n{party_color} [{current_party}] Sorunuz: ").strip()
+        question = input(f"[{current_party}] Sorunuz: ").strip()
 
-        # Çıkış kontrolü
-        if question.lower() in ['q', 'quit', 'exit', 'çıkış']:
-            print("\n👋 Görüşmek üzere!")
+        if question.lower() in ["q", "quit", "exit"]:
+            print("👋 Hoşça kalın!")
             break
 
-        # Parti değiştirme (sadece "/" ile başlıyorsa)
-        if question.startswith('/'):
-            # Sadece ilk kelimeyi (parti adını) al
-            parts = question.split(maxsplit=1)
-            new_party = parts[0][1:].upper()  # "/" işaretini çıkar
+        if question.startswith("/"):
+            party_cmd = question[1:].upper()
+            party_cmd = normalize_party_name(party_cmd)
 
-            if new_party in prepared_parties:
-                current_party = new_party
-                print(f"✅ Parti değiştirildi: {current_party}")
+            if party_cmd in prepared_parties:
+                current_party = party_cmd
+                print(f"✅ {current_party}\n")
                 utils.print_party_info(current_party)
-
-                # Eğer sorunun devamı varsa, onu sor
-                if len(parts) > 1:
-                    question = parts[1].strip()
-                    # Soruyu sor (aşağıdaki kod çalışacak)
-                else:
-                    continue  # Sadece parti değişikliği, sonraki soruya geç
             else:
-                print(f"❌ Parti bulunamadı: {new_party}")
-                print(f"Mevcut partiler: {', '.join(prepared_parties)}")
-                continue
-
-        if not question:
-            print("⚠️ Lütfen bir soru yazın.")
+                print(f"❌ {party_cmd} yok\n")
             continue
 
-        # Cevap üret
+        if not question:
+            continue
+
         try:
-            response = ask_question(
+            print(f"\n{'='*60}\n🤖 Cevap: ", end="", flush=True)
+            response_gen, source_docs = ask_question(
                 question,
-                vectorstores[current_party],
-                chains[current_party],
-                current_party
+                vectorstore,
+                llm_handler,
+                current_party,
+                llm_type,
+                stream=True,
             )
 
-            print("\n" + "="*60)
-            print(f"Cevap ({current_party}):")
-            print("="*60)
-            print(response)
-            print("="*60)
+            for chunk in response_gen:
+                content = handle_stream_response(chunk, llm_type)
+                print(content, end="", flush=True)
 
+            if source_docs:
+                print(f"\n\n📚 Kaynaklar: {[doc.metadata.get('page', '?') for doc in source_docs]}")
+
+            print(f"\n{'='*60}\n")
         except Exception as e:
-            utils.logger.error(f"❌ Hata: {str(e)}")
-            print("⚠️ Bir hata oluştu. Lütfen tekrar deneyin.")
+            print(f"⚠️ Hata: {str(e)}\n")
+
 
 # ============================================
-# CLI INTERFACE
+# MAIN
 # ============================================
+
 
 def main():
-    """Ana fonksiyon"""
-    parser = argparse.ArgumentParser(
-        description="Turkish Government Intelligence Hub - Soru-Cevap Sistemi"
-    )
-
-    parser.add_argument(
-        "--party",
-        type=str,
-        choices=list(config.PARTY_PDFS.keys()),
-        help="Sadece belirtilen parti ile çalış"
-    )
-
+    parser = argparse.ArgumentParser(description="Turkish Government Intelligence Hub")
+    parser.add_argument("--party", type=str, help="Tek parti modu")
     args = parser.parse_args()
 
-    # Tek parti modu
     if args.party:
         single_party_mode(args.party)
-    # Çoklu parti modu
     else:
         multi_party_mode()
 
-# ============================================
-# RUN
-# ============================================
 
 if __name__ == "__main__":
     main()

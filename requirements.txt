@@ -1,19 +1,20 @@
-﻿# Turkish Government Intelligence Hub - Requirements
+# Turkish Government Intelligence Hub - Requirements
 # Baran Can Ercan
-# Last Updated: 25 Aralık 2024
+# Last Updated: 6 Ocak 2025
 
 # ============================================
 # LangChain Core & Ecosystem
 # ============================================
 langchain==0.3.7
-langchain-core==0.3.15
+langchain-core==0.3.17
 langchain-community==0.3.7
 langchain-text-splitters==0.3.2
 
-# LangChain Integrations (Yeni - Deprecation Fix)
+# LangChain Integrations
 langchain-chroma==0.1.4
 langchain-ollama==0.2.0
 langchain-huggingface==0.1.2
+langchain-google-genai
 
 # ============================================
 # Vector Database & Embeddings
@@ -33,7 +34,16 @@ transformers==4.46.3
 torch==2.5.1
 
 # ============================================
+# Web & UI
+# ============================================
+streamlit==1.31.0
+
+# ============================================
 # Optional: Development Tools
 # ============================================
-# streamlit==1.31.0  # Uncomment for UI
-# pytest==7.4.4      # Uncomment for testing
+pytest==7.4.4
+pytest-mock
+black
+ruff
+python-dotenv
+# langchain-openai (for Cloud - add later)

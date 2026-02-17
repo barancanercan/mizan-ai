@@ -1,165 +1,271 @@
 """
 Turkish Government Intelligence Hub - Configuration
-Merkezi konfigürasyon dosyası
+Local Image Serving + İYİ Normalization
 """
 
+import os
+import logging
 from pathlib import Path
+from typing import Dict, Any
 
 # ============================================
-# PATHS - Dosya Yolları
+# TELEMETRY - Devre Dışı
 # ============================================
 
-# Base directories
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+logging.getLogger("chromadb.telemetry.product.posthog").setLevel(logging.CRITICAL)
+
+# ============================================
+# PATHS
+# ============================================
+
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
 VECTOR_DB_DIR = PROJECT_ROOT / "vector_db"
 SRC_DIR = PROJECT_ROOT / "src"
+PICTURE_DIR = PROJECT_ROOT / "picture"  # ← LOCAL IMAGES
 
-# Parti PDF'leri
-PARTY_PDFS = {
-    "CHP": DATA_DIR / "chp.pdf",
-    "AKP": DATA_DIR / "akp.pdf",
-    "MHP": DATA_DIR / "mhp.pdf",
-    "İYİ": DATA_DIR / "iyi.pdf"
-}
+# ============================================
+# DYNAMIC PARTY DISCOVERY WITH İYİ NORMALIZATION
+# ============================================
 
-# Vector Database paths
+
+def discover_parties() -> Dict[str, Path]:
+    """
+    Dinamik olarak data/ klasöründeki tüm PDF'leri keşfederek bir sözlük döndürür.
+    "IYI" isimlendirmesini "İYİ" olarak normalize eder.
+
+    Returns:
+        Dict[str, Path]: Parti kodu ve ilgili PDF dosyasının yolu.
+    """
+    discovered: Dict[str, Path] = {}
+    if not DATA_DIR.exists():
+        return discovered
+
+    for pdf_file in sorted(DATA_DIR.glob("*.pdf")):
+        party_code: str = pdf_file.stem.upper()
+
+        if party_code == "IYI":
+            party_code = "İYİ"
+
+        discovered[party_code] = pdf_file
+
+    return discovered
+
+
+PARTY_PDFS = discover_parties()
 PARTY_VECTOR_DBS = {
-    "CHP": VECTOR_DB_DIR / "chp_db",
-    "AKP": VECTOR_DB_DIR / "akp_db",
-    "MHP": VECTOR_DB_DIR / "mhp_db",
-    "İYİ": VECTOR_DB_DIR / "iyi_db"
+    party: VECTOR_DB_DIR / f"{party.replace('İ', 'i').lower()}_db"  # ← ORDER DEĞİŞTİ!
+    for party in PARTY_PDFS.keys()
 }
 
 # ============================================
-# MODEL CONFIGS - Model Ayarları
+# PARTY METADATA
 # ============================================
 
-# Embedding Model
-EMBEDDING_MODEL = "nezahatkorkmaz/turkce-embedding-bge-m3"
-
-# LLM Model
-LLM_MODEL = "qwen2.5:7b-instruct-q4_K_M"
-LLM_TEMPERATURE = 0
-LLM_MAX_TOKENS = 512
-
-# ============================================
-# RAG CONFIGS - RAG Ayarları
-# ============================================
-
-# Text Splitting
-CHUNK_SIZE = 512
-CHUNK_OVERLAP = 50
-
-# Retrieval
-TOP_K = 3  # Kaç chunk getireceğiz
-SIMILARITY_THRESHOLD = 0.6  # Minimum benzerlik skoru
-
-# ============================================
-# PROMPT TEMPLATES - Prompt Şablonları
-# ============================================
-
-SYSTEM_PROMPTS = {
-    "CHP": """Sen CHP (Cumhuriyet Halk Partisi) hakkında bilgi veren bir asistansın.
-
-Aşağıdaki CHP Parti Tüzüğü bölümüne göre soruyu yanıtla:
-
-{context}
-
-Kullanıcının Sorusu: {question}
-
-Yanıt Kuralları:
-- Kibar, nazik ve bilgilendirici ol
-- Doğrudan cevap ver, kaynak belirtme
-- Eğer ilgili bilgi yukardaki metinde yoksa: "Bu konuda parti tüzüğünde detaylı bilgi bulamadım. Daha fazla bilgi için https://chp.org.tr/ adresini ziyaret edebilirsiniz."
-
-Yanıt:
-""",
-
-    "AKP": """Sen AKP (Adalet ve Kalkınma Partisi) hakkında bilgi veren bir asistansın.
-
-Aşağıdaki AKP Parti Tüzüğü bölümüne göre soruyu yanıtla:
-
-{context}
-
-Kullanıcının Sorusu: {question}
-
-Yanıt Kuralları:
-- Kibar, nazik ve bilgilendirici ol
-- Doğrudan cevap ver, kaynak belirtme
-- Eğer ilgili bilgi yukardaki metinde yoksa: "Bu konuda parti tüzüğünde detaylı bilgi bulamadım. Daha fazla bilgi için https://akparti.org.tr/ adresini ziyaret edebilirsiniz."
-
-Yanıt:
-""",
-
-    "MHP": """Sen MHP (Milliyetçi Hareket Partisi) hakkında bilgi veren bir asistansın.
-
-Aşağıdaki MHP Parti Tüzüğü bölümüne göre soruyu yanıtla:
-
-{context}
-
-Kullanıcının Sorusu: {question}
-
-Yanıt Kuralları:
-- Kibar, nazik ve bilgilendirici ol
-- Doğrudan cevap ver, kaynak belirtme
-- Eğer ilgili bilgi yukardaki metinde yoksa: "Bu konuda parti tüzüğünde detaylı bilgi bulamadım. Daha fazla bilgi için https://mhp.org.tr/ adresini ziyaret edebilirsiniz."
-
-Yanıt:
-""",
-
-    "İYİ": """Sen İYİ Parti hakkında bilgi veren bir asistansın.
-
-Aşağıdaki İYİ Parti Tüzüğü bölümüne göre soruyu yanıtla:
-
-{context}
-
-Kullanıcının Sorusu: {question}
-
-Yanıt Kuralları:
-- Kibar, nazik ve bilgilendirici ol
-- Doğrudan cevap ver, kaynak belirtme
-- Eğer ilgili bilgi yukardaki metinde yoksa: "Bu konuda parti tüzüğünde detaylı bilgi bulamadım. Daha fazla bilgi için https://iyiparti.org.tr/ adresini ziyaret edebilirsiniz."
-
-Yanıt:
-"""
-}
-
-# ============================================
-# PARTY INFO - Parti Bilgileri
-# ============================================
-
-PARTY_INFO = {
+PARTY_METADATA: Dict[str, Any] = {
     "CHP": {
         "name": "Cumhuriyet Halk Partisi",
         "short": "CHP",
         "website": "https://chp.org.tr",
-        "color": "🔴"
+        "hex_color": "#FF0000",
+        "accent_color": "#CC0000",
+        "founded": 1923,
+        "ideology": "Sosyal Demokrasi, Laïklik",
+        "description": "Türkiye'nin en eski siyasi partisi, merkez-sol",
     },
     "AKP": {
         "name": "Adalet ve Kalkınma Partisi",
         "short": "AKP",
-        "website": "https://akparti.org.tr",
-        "color": "🟠"
+        "website": "https://www.akparti.org.tr",
+        "hex_color": "#E55100",
+        "accent_color": "#D84315",
+        "founded": 2001,
+        "ideology": "Muhafazakâr, İslami Demokrasi",
+        "description": "Mevcut iktidar partisi, merkez-sağ muhafazakâr",
     },
     "MHP": {
         "name": "Milliyetçi Hareket Partisi",
         "short": "MHP",
         "website": "https://mhp.org.tr",
-        "color": "🔵"
+        "hex_color": "#0066FF",
+        "accent_color": "#0052CC",
+        "founded": 1969,
+        "ideology": "Milliyetçilik, Muhafazakârlık",
+        "description": "Milliyetçi muhafazakâr parti, hükümet ortağı",
     },
-    "İYİ": {
+    "İYİ": {  # ← Turkish İ character
         "name": "İYİ Parti",
         "short": "İYİ",
         "website": "https://iyiparti.org.tr",
-        "color": "🟡"
-    }
+        "hex_color": "#FFD700",
+        "accent_color": "#FFC700",
+        "founded": 2017,
+        "ideology": "Liberalizm, Milliyetçilik",
+        "description": "Merkez-sağ liberal parti",
+    },
+    "DEM": {
+        "name": "Halkların Eşitlik ve Demokrasi Partisi",
+        "short": "DEM",
+        "website": "https://www.dem.org.tr",
+        "hex_color": "#9933FF",
+        "accent_color": "#7722CC",
+        "founded": 2022,
+        "ideology": "Sosyalizm, Halkçılık",
+        "description": "Sol-liberal demokratik parti",
+    },
+    "SP": {
+        "name": "Saadet Partisi",
+        "short": "SP",
+        "website": "https://saadet.org.tr",
+        "hex_color": "#00AA00",
+        "accent_color": "#008800",
+        "founded": 1997,
+        "ideology": "İslami Demokrasi",
+        "description": "İslami değerlere yakın parti",
+    },
+    "ZP": {
+        "name": "Zafer Partisi",
+        "short": "ZP",
+        "website": "https://www.zaferpartisi.org.tr",
+        "hex_color": "#000000",
+        "accent_color": "#333333",
+        "founded": 2021,
+        "ideology": "Milliyetçilik",
+        "description": "Milliyetçi parti",
+    },
+    "BBP": {
+        "name": "Büyük Birlik Partisi",
+        "short": "BBP",
+        "website": "https://www.bbp.org.tr",
+        "hex_color": "#CC0000",
+        "accent_color": "#990000",
+        "founded": 1993,
+        "ideology": "Milliyetçilik, Muhafazakârlık",
+        "description": "Milliyetçi muhafazakâr parti",
+    },
 }
 
+
+def create_party_info(parties: Dict[str, Path]) -> Dict[str, Any]:
+    """
+    Parti bilgilerini temel alan PARTY_INFO sözlüğünü otomatik olarak oluşturur.
+
+    Args:
+        parties: Keşfedilen partilerin sözlüğü.
+
+    Returns:
+        Dict[str, Any]: Parti özelliklerini (isim, renk, vb.) içeren sözlük.
+    """
+    party_info: Dict[str, Any] = {}
+    for party in parties.keys():
+        if party in PARTY_METADATA:
+            party_info[party] = PARTY_METADATA[party]
+        else:
+            party_info[party] = {
+                "name": party.capitalize(),
+                "short": party,
+                "website": "https://example.com",
+                "hex_color": "#0066FF",
+                "accent_color": "#0052CC",
+                "founded": 2020,
+                "ideology": "Bilinmiyor",
+                "description": "Açıklama bulunmamaktadır",
+            }
+    return party_info
+
+
+PARTY_INFO = create_party_info(PARTY_PDFS)
+
 # ============================================
-# LOGGING CONFIG - Log Ayarları
+# MODEL CONFIGS
 # ============================================
 
-LOG_FILE = PROJECT_ROOT / "app.log"
-LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-LOG_LEVEL = "INFO"
+EMBEDDING_MODEL = "nezahatkorkmaz/turkce-embedding-bge-m3"
+LLM_MODEL = "qwen2.5:7b"
+LLM_TEMPERATURE = 0.3
+LLM_MAX_TOKENS = 1024
+
+# ============================================
+# RAG CONFIGS
+# ============================================
+
+CHUNK_SIZE: int = 512
+CHUNK_OVERLAP: int = 50
+TOP_K: int = 3
+SIMILARITY_THRESHOLD: float = 0.5
+
+# Unified Database Configuration
+UNIFIED_VECTOR_DB: Path = VECTOR_DB_DIR / "unified_parties_db"
+COLLECTION_NAME: str = "turkish_parties"
+
+# ============================================
+# SYSTEM PROMPTS
+# ============================================
+
+
+def create_professional_prompts(parties: Dict[str, Path]) -> Dict[str, str]:
+    """
+    Her siyasi parti için özelleştirilmiş profesyonel sistem promptları oluşturur.
+
+    Args:
+        parties: Keşfedilen partilerin sözlüğü.
+
+    Returns:
+        Dict[str, str]: Parti bazlı sistem promptları.
+    """
+    base_prompts: Dict[str, str] = {
+        "CHP": "Sen CHP (Cumhuriyet Halk Partisi) hakkında uzman bir bilgi asistanısın.",
+        "AKP": "Sen AKP (Adalet ve Kalkınma Partisi) hakkında uzman bir bilgi asistanısın.",
+        "MHP": "Sen MHP (Milliyetçi Hareket Partisi) hakkında uzman bir bilgi asistanısın.",
+        "İYİ": "Sen İYİ Parti hakkında uzman bir bilgi asistanısın.",
+        "DEM": "Sen DEM (Halkların Eşitlik ve Demokrasi Partisi) hakkında uzman bir bilgi asistanısın.",
+        "SP": "Sen Saadet Partisi hakkında uzman bir bilgi asistanısın.",
+        "ZP": "Sen Zafer Partisi hakkında uzman bir bilgi asistanısın.",
+        "BBP": "Sen Büyük Birlik Partisi hakkında uzman bir bilgi asistanısın.",
+    }
+
+    prompts: Dict[str, str] = {}
+    for party, intro in base_prompts.items():
+        prompt: str = f"""Sen {party} Partisi hakkında uzman bir asistansın. Aşağıdaki bilgilere dayanarak soruyu Türkçe olarak yanıtla.
+
+Bilgi:
+{{context}}
+
+Soru: {{question}}
+
+Kısa ve öz cevap ver:"""
+        prompts[party] = prompt
+
+    return prompts
+
+
+SYSTEM_PROMPTS = create_professional_prompts(PARTY_PDFS)
+
+# ============================================
+# LOGGING
+# ============================================
+
+LOG_FILE: Path = PROJECT_ROOT / "app.log"
+LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+LOG_LEVEL: str = "INFO"
+
+# ============================================
+# UI & STREAMLIT CONFIGS
+# ============================================
+
+APP_TITLE: str = "Türk Siyasi Partileri Bilgi Sistemi"
+APP_ICON: str = "🇹🇷"
+APP_LAYOUT: str = "wide"
+SIDEBAR_STATE: str = "expanded"
+
+PARTY_LOGOS: Dict[str, str] = {
+    "CHP": "chp.png",
+    "AKP": "akp.png",
+    "MHP": "mhp.png",
+    "İYİ": "iyi.png",
+    "DEM": "dem.png",
+    "SP": "sp.png",
+    "ZP": "zp.png",
+    "BBP": "bbp.png",
+}
