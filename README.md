@@ -1,13 +1,13 @@
-# 🇹🇷 Turkish Government Intelligence Hub
+# mizan-ai
 
-**A Professional, Production-Ready RAG System for Analyzing Turkish Political Party Constitutions with Qwen2.5**
+**A Tool-Augmented RAG (T-RAG) Platform for Political Document Analysis**
 
 [![AI/ML](https://img.shields.io/badge/AI%20Intelligence-RAG-blue.svg)](#)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/LangChain-0.3+-green.svg)](https://www.langchain.com/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.31+-red.svg)](https://streamlit.io/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](Dockerfile)
-[![CI](https://github.com/barancanercan/Turkish-Government-Intelligence-Hub/actions/workflows/ci.yml/badge.svg)](https://github.com/barancanercan/Turkish-Government-Intelligence-Hub/actions)
+[![CI](https://github.com/barancanercan/mizan-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/barancanercan/mizan-ai/actions)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
@@ -20,7 +20,7 @@ _Engage in natural language conversations with the official constitutions of 8 m
 
 ---
 
-## 🎯 Key Features (v4.1+)
+## 🎯 Key Features (v5.0 - T-RAG)
 
 ### 🧠 Advanced RAG Engine
 
@@ -38,11 +38,19 @@ _Engage in natural language conversations with the official constitutions of 8 m
 ### 🔌 Flexible LLM Backend
 
 - **Hybrid LLM Support:** Seamlessly switches between:
-  - **Local Ollama (Qwen2.5-7B)** - Default, best for privacy
-  - **Google Gemini 1.5 Flash** - Cloud option for better reasoning
-  - **HuggingFace Inference API** - Fallback option
+  - **Google Gemini 1.5 Flash** - Primary LLM (fast, cost-effective)
+  - **Local Ollama (Qwen2.5-7B)** - Fallback for privacy and when API quota exhausted
+- **Smart Fallback Chain:** Automatically falls back to Ollama if Gemini quota exceeded or fails
 - **Lazy Loading Strategy:** Resources (Vector DB, Models) only load when needed, optimizing startup and memory usage.
 - **Hash-Based Tracking:** Intelligent data preparation that only processes modified PDF files after hashing.
+
+### 🛡️ Content Safety & Intent Routing
+
+- **T-RAG (Tool-Augmented RAG):** Advanced architecture with intelligent routing
+- **Intent Analysis:** Router Engine analyzes queries to determine if local knowledge or web search is needed
+- **Content Filtering:** Blocks offensive/inappropriate queries (Turkish language support)
+- **Web Search Integration:** DuckDuckGo for current information when local knowledge is insufficient
+- **Search Agent:** Intermediate layer for intelligent search strategy and query optimization
 
 ### 🛠️ Modular Architecture
 
@@ -54,22 +62,24 @@ _Engage in natural language conversations with the official constitutions of 8 m
 
 ---
 
-## 🏗️ Technical Architecture
+## 🏗️ Technical Architecture (T-RAG)
 
 ```mermaid
 graph TD
-    User([User Query]) --> UI[Streamlit UI - Glassmorphism]
-    UI --> Search[Vector Search - Turkish BGE-M3]
-    Search --> DB[(Unified ChromaDB)]
-    DB --> Context[Context Retrieval & Metadata Filter]
+    User([User Query]) --> Filter[Content Filter]
+    Filter --> Router[Router Engine<br/>Intent Analysis]
+    Router -->|Local Knowledge| VectorSearch[Vector Search - Turkish BGE-M3]
+    Router -->|Current Info| WebSearch[DuckDuckGo Web Search]
+    VectorSearch --> DB[(Unified ChromaDB)]
+    DB --> Context[Context Assembly]
+    WebSearch --> Context
     Context --> LLM{LLM Backend}
-    LLM -->|Local| Ollama[Ollama + Qwen2.5-7B]
-    LLM -->|Cloud| Gemini[Google Gemini 1.5 Flash]
-    LLM -->|Fallback| HF[HuggingFace API]
-    Ollama --> Response[Response + Sources]
-    Gemini --> Response
-    HF --> Response
-    Response --> UI
+    LLM -->|Primary| Gemini[Google Gemini 1.5 Flash]
+    LLM -->|Fallback| Ollama[Ollama + Qwen2.5-7B]
+    Gemini --> Response[Response + Attribution]
+    Ollama --> Response
+    Response --> UI[Streamlit UI - Glassmorphism]
+    UI --> User
 ```
 
 ---
@@ -100,8 +110,8 @@ The recommended way for maximum privacy and performance.
 ollama pull qwen2.5:7b-instruct
 
 # Clone and install
-git clone https://github.com/barancanercan/Turkish-Government-Intelligence-Hub.git
-cd Turkish-Government-Intelligence-Hub
+git clone https://github.com/barancanercan/mizan-ai.git
+cd mizan-ai
 
 # Create virtual environment (Windows)
 python -m venv .venv
@@ -109,6 +119,7 @@ python -m venv .venv
 
 # Install dependencies
 pip install -r requirements.txt
+pip install duckduckgo-search
 
 # Prepare vector database (one-time setup)
 python src/prepare_data.py --force
@@ -149,7 +160,11 @@ docker run -p 8501:8501 intelligence-hub
 │   ├── core/              # Modular utilities
 │   │   ├── parties.py     # Party name normalization
 │   │   ├── streaming.py  # Stream response handling
-│   │   ├── llm_setup.py   # LLM initialization
+│   │   ├── llm_setup.py   # LLM initialization (Gemini primary + Ollama fallback)
+│   │   ├── router_engine.py # Intent analysis & routing (T-RAG)
+│   │   ├── duckduckgo_search.py # Web search integration
+│   │   ├── search_agent.py # Search strategy optimization
+│   │   ├── content_filter.py # Offensive content filtering
 │   │   └── cache.py       # Caching utilities
 │   ├── exceptions.py      # Custom exception classes
 │   └── models.py          # Pydantic models
@@ -204,6 +219,6 @@ Developed with ❤️ by **Baran Can Ercan**
 ---
 
 <div align="center">
-  <b>Turkish Government Intelligence Hub</b><br>
-  Made for transparency, efficiency, and civic intelligence. 🇹🇷
+  <b>mizan-ai</b><br>
+  A Tool-Augmented RAG (T-RAG) Platform for Political Document Analysis
 </div>

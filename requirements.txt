@@ -1,6 +1,6 @@
 # Turkish Government Intelligence Hub - Requirements
 # Baran Can Ercan
-# Last Updated: 6 Ocak 2025
+# Last Updated: 18 Şubat 2025 (T-RAG v5.0)
 
 # ============================================
 # LangChain Core & Ecosystem
@@ -37,6 +37,11 @@ torch==2.5.1
 # Web & UI
 # ============================================
 streamlit==1.31.0
+
+# ============================================
+# Web Search (T-RAG)
+# ============================================
+duckduckgo-search>=4.0.0
 
 # ============================================
 # Optional: Development Tools
