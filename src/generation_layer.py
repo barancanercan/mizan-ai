@@ -72,7 +72,7 @@ class GenerationConfig:
 @dataclass
 class GeneratedAnswer:
     """Üretilen cevap."""
-    answer: str
+    answer: str = ""
     citations: List[Citation] = field(default_factory=list)
     sources_used: List[str] = field(default_factory=list)
     context_used: str = ""
@@ -220,6 +220,7 @@ CEVAP:"""
         """Generate with LLM."""
         try:
             # Lock temperature
+            original_temp = None
             if hasattr(self.llm, 'temperature'):
                 original_temp = self.llm.temperature
                 self.llm.temperature = cfg.temperature
@@ -227,7 +228,7 @@ CEVAP:"""
             response = self.llm.invoke(prompt)
             
             # Restore temperature
-            if hasattr(self.llm, 'temperature'):
+            if original_temp is not None:
                 self.llm.temperature = original_temp
             
             if hasattr(response, 'content'):
