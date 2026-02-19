@@ -91,13 +91,13 @@ class PromptInjectionDetector(BaseGuardrail):
         
         # Role override
         r'(?i)(?:you\s+(?:are|are now|must be|will be)\s+(?:now\s+)?(?:a|an|only)\s+\w+)',
-        r'(?i)(?:act\s+as\s+(?:if|like)\s+(?:you\s+)?(?:are|were)',
-        r'(?i)(?:pretend\s+(?:you|to be|to)',
+        r'(?i)(?:act\s+as\s+(?:if|like)\s+(?:you\s+)?(?:are|were))',
+        r'(?i)(?:pretend\s+(?:you|to\s+be|to))',
         
         # System prompt extraction
         r'(?i)(?:what\s+(?:are|is|do)\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?|rules?))',
         r'(?i)(?:tell\s+(?:me|us)\s+(?:your\s+)?(?:original\s+)?(?:prompt|instructions?))',
-        r'(?i)(?:reveal\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?)',
+        r'(?i)(?:reveal\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?))',
         
         # Jailbreak attempts
         r'(?i)(?:DAN\s+|:|\|=)',
@@ -111,7 +111,7 @@ class PromptInjectionDetector(BaseGuardrail):
         
         # Prompt leaking
         r'(?i)(?:copy?\s+(?:paste|write)\s+(?:this|that)\s+(?:exactly|as\s+is))',
-        r'(?i)(?:respond\s+(?:with|using)\s+only\s+',
+        r'(?i)(?:respond\s+(?:with|using)\s+only)',
         
         # Markdown/formatting exploits
         r'^```system',
@@ -673,8 +673,9 @@ class AdversarialTestGenerator:
                 test_result['actual'] = 'blocked' if not report.passed else 'passed'
             
             elif 'overflow' in test['name'] or 'long' in test['name']:
-                report = guardrails.get('token', TokenLimitEnforcer()).check_input(test['input'])
-                test_result['actual'] = 'truncated' if not report.passed else 'passed'
+                token_guard = guardrails.get('token', TokenLimitEnforcer())
+                passed, token_report = token_guard.check_input(test['input'])
+                test_result['actual'] = 'truncated' if not passed else 'passed'
             
             test_result['passed'] = test_result['actual'] == test['expected']
             
@@ -786,10 +787,10 @@ class SecurityPipeline:
     ) -> Tuple[SecurityReport, Optional[str]]:
         """Check token limits."""
         combined = f"{context} {query}" if context else query
-        report, sanitized = self.token_enforcer.check_input(combined)
+        passed, report = self.token_enforcer.check_input(combined)
         
-        if not report.passed:
-            return report, sanitized
+        if not passed:
+            return report, report.sanitized_content if hasattr(report, 'sanitized_content') else combined[:8000]
         
         return report, None
     
