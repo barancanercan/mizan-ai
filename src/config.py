@@ -187,17 +187,121 @@ LLM_TEMPERATURE = 0.3
 LLM_MAX_TOKENS = 1024
 
 # ============================================
+# SOURCE WHITELIST - Güvenilir Kaynak Yönetimi (FAZ 1)
+# ============================================
+
+class SourceType:
+    """Kaynak türleri."""
+    PARTY_STATUTE = "party_statute"      # Parti tüzükleri
+    PARTY_PROGRAM = "party_program"      # Resmi programlar
+    TBMM_DOCUMENT = "tbmm_document"     # TBMM belgeleri
+    YSK_PUBLICATION = "ysk_publication"  # YSK yayınları
+
+
+class SourceWhitelist:
+    """
+    Whitelist edilmiş güvenilir kaynaklar.
+    Her kaynak: {type, name, url, verified_date, trusted}
+    """
+    
+    SOURCES = {
+        # Parti tüzükleri (PDF)
+        "CHP": {
+            "type": SourceType.PARTY_STATUTE,
+            "name": "Cumhuriyet Halk Partisi Tüzüğü",
+            "url": "https://chp.org.tr",
+            "verified_date": "2024-01-01",
+            "trusted": True,
+        },
+        "AKP": {
+            "type": SourceType.PARTY_STATUTE,
+            "name": "Adalet ve Kalkınma Partisi Tüzüğü",
+            "url": "https://www.akparti.org.tr",
+            "verified_date": "2024-01-01",
+            "trusted": True,
+        },
+        "MHP": {
+            "type": SourceType.PARTY_STATUTE,
+            "name": "Milliyetçi Hareket Partisi Tüzüğü",
+            "url": "https://mhp.org.tr",
+            "verified_date": "2024-01-01",
+            "trusted": True,
+        },
+        "İYİ": {
+            "type": SourceType.PARTY_STATUTE,
+            "name": "İYİ Parti Tüzüğü",
+            "url": "https://iyiparti.org.tr",
+            "verified_date": "2024-01-01",
+            "trusted": True,
+        },
+        "DEM": {
+            "type": SourceType.PARTY_STATUTE,
+            "name": "Halkların Eşitlik ve Demokrasi Partisi Tüzüğü",
+            "url": "https://www.dem.org.tr",
+            "verified_date": "2024-01-01",
+            "trusted": True,
+        },
+        "SP": {
+            "type": SourceType.PARTY_STATUTE,
+            "name": "Saadet Partisi Tüzüğü",
+            "url": "https://saadet.org.tr",
+            "verified_date": "2024-01-01",
+            "trusted": True,
+        },
+        "ZP": {
+            "type": SourceType.PARTY_STATUTE,
+            "name": "Zafer Partisi Tüzüğü",
+            "url": "https://www.zaferpartisi.org.tr",
+            "verified_date": "2024-01-01",
+            "trusted": True,
+        },
+        "BBP": {
+            "type": SourceType.PARTY_STATUTE,
+            "name": "Büyük Birlik Partisi Tüzüğü",
+            "url": "https://www.bbp.org.tr",
+            "verified_date": "2024-01-01",
+            "trusted": True,
+        },
+    }
+    
+    @classmethod
+    def is_trusted(cls, source_key: str) -> bool:
+        """Kaynağın güvenilir olup olmadığını kontrol eder."""
+        source = cls.SOURCES.get(source_key)
+        return source.get("trusted", False) if source else False
+    
+    @classmethod
+    def get_source_type(cls, source_key: str) -> str:
+        """Kaynağın türünü döndürür."""
+        source = cls.SOURCES.get(source_key)
+        return source.get("type", "unknown") if source else "unknown"
+    
+    @classmethod
+    def get_all_trusted(cls) -> dict:
+        """Tüm güvenilir kaynakları döndürür."""
+        return {k: v for k, v in cls.SOURCES.items() if v.get("trusted")}
+
+
+# ============================================
 # RAG CONFIGS
 # ============================================
 
 CHUNK_SIZE: int = 512
 CHUNK_OVERLAP: int = 50
 TOP_K: int = 3
-SIMILARITY_THRESHOLD: float = 0.5
+SIMILARITY_THRESHOLD: float = 0.3  # ChromaDB similarity (yüksek = iyi)
 
 # Unified Database Configuration
 UNIFIED_VECTOR_DB: Path = VECTOR_DB_DIR / "unified_parties_db"
 COLLECTION_NAME: str = "turkish_parties"
+
+# ============================================
+# ROUTER & SEARCH CONFIGS (FREE)
+# ============================================
+
+ROUTER_THRESHOLD: float = 0.15  # Düşük - tek kelime eşleşmesi yeterli
+WEB_SEARCH_MAX_RESULTS: int = 5
+WEB_SEARCH_TIMEOUT: int = 10
 
 # ============================================
 # SYSTEM PROMPTS
@@ -254,8 +358,9 @@ LOG_LEVEL: str = "INFO"
 # UI & STREAMLIT CONFIGS
 # ============================================
 
-APP_TITLE: str = "Türk Siyasi Partileri Bilgi Sistemi"
-APP_ICON: str = "🇹🇷"
+APP_TITLE: str = "mizan-ai | Siyasi Belge Analiz Platformu"
+APP_SUBTITLE: str = "T-RAG: Tool-Augmented RAG for Political Documents"
+APP_ICON: str = "⚖️"
 APP_LAYOUT: str = "wide"
 SIDEBAR_STATE: str = "expanded"
 
