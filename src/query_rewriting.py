@@ -158,6 +158,7 @@ class RuleBasedRewriter(BaseQueryRewriter):
         
         # Apply colloquial to formal transformations
         for pattern, compiled in self.patterns.items():
+            replacement = TURKISH_COLLOQUIAL_TO_FORMAL.get(pattern, '')
             rewritten = compiled.sub(replacement, rewritten)
         
         # Normalize Turkish characters
