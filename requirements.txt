@@ -1,4 +1,4 @@
-# Turkish Government Intelligence Hub - Requirements
+# MizanAI - Requirements
 # Baran Can Ercan
 # Last Updated: 18 Şubat 2025 (T-RAG v5.0)
 
@@ -21,6 +21,12 @@ langchain-google-genai
 # ============================================
 chromadb==0.5.23
 sentence-transformers==3.3.1
+
+# ============================================
+# Retrieval (FAZ 2)
+# ============================================
+rank-bm25==0.2.2
+numpy==1.26.4
 
 # ============================================
 # Document Processing
