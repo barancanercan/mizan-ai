@@ -1,6 +1,6 @@
 """
-Turkish Government Intelligence Hub - LLM Setup Utilities
-Ollama, HuggingFace ve Gemini LLM yapılandırma fonksiyonları
+mizan-ai - LLM Setup Utilities
+Gemini (Birincil) + Ollama (Yedek) Configuration
 """
 
 import os
@@ -16,184 +16,119 @@ import config
 import utils
 from core.parties import normalize_party_name
 
+logger = logging.getLogger(__name__)
 
-def setup_ollama_chain(party: str) -> Any:
+
+def setup_gemini_chain(party: str) -> Tuple[Any, str]:
     """
-    Ollama LLM için LangChain chain'i oluşturur.
+    Gemini LLM için chain oluşturur (Birincil).
 
     Args:
         party: Hedef parti kodu.
 
     Returns:
-        Any: Hazırlanmış LangChain chain'i.
-    """
-    try:
-        normalized_party = normalize_party_name(party)
-
-        prompt_template = PromptTemplate.from_template(
-            config.SYSTEM_PROMPTS.get(
-                normalized_party, config.SYSTEM_PROMPTS.get(party)
-            )
-        )
-        
-        ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-        llm = OllamaLLM(
-            model=config.LLM_MODEL, 
-            temperature=config.LLM_TEMPERATURE,
-            base_url=ollama_base_url
-        )
-        llm.invoke("test", num_predict=5)
-        chain = prompt_template | llm | StrOutputParser()
-        utils.logger.info("✅ Ollama bağlantısı başarılı")
-        return chain
-    except Exception as e:
-        utils.logger.error(f"❌ Ollama hatası: {str(e)}")
-        raise
-
-
-def setup_huggingface_config() -> Optional[Dict[str, str]]:
-    """
-    HuggingFace API bağlantısı için gerekli konfigürasyonu hazırlar.
-
-    Returns:
-        Optional[Dict[str, str]]: API token ve model bilgilerini içeren sözlük veya None.
-    """
-    hf_token = os.getenv("HF_TOKEN")
-    if not hf_token:
-        utils.logger.warning("⚠️ HF_TOKEN not set")
-        return None
-
-    utils.logger.info("✅ HuggingFace config hazır")
-    return {"token": hf_token, "model": "Qwen/Qwen2.5-7B-Instruct"}
-
-
-def query_with_huggingface(prompt: str, hf_config: dict, stream: bool = False) -> Any:
-    """
-    HuggingFace API'ye sorgula (Stream destekli).
-
-    Args:
-        prompt: Sorgu metni.
-        hf_config: HuggingFace konfigürasyonu.
-        stream: Stream modu etkinleştirilsin mi?
-
-    Returns:
-        Any: LLM cevabı veya stream iteratörü.
-    """
-    try:
-        from huggingface_hub import InferenceClient
-
-        client = InferenceClient(api_key=hf_config["token"])
-
-        if stream:
-            return client.chat_completion(
-                model=hf_config["model"],
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7,
-                max_tokens=2048,
-                stream=True,
-            )
-
-        response = client.chat_completion(
-            model=hf_config["model"],
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=2048,
-        )
-
-        if not response or not response.choices:
-            return "❌ HuggingFace boş cevap döndürdü"
-
-        return response.choices[0].message.content
-    except Exception as e:
-        utils.logger.error(f"HuggingFace hatası: {str(e)}")
-        raise
-
-
-def setup_gemini() -> Optional[Any]:
-    """
-    Gemini API bağlantısı için gerekli konfigürasyonu hazırlar.
-
-    Returns:
-        Optional[Any]: Yapılandırılmış Gemini LLM veya None.
+        Tuple[Any, str]: (handler, llm_type)
     """
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        utils.logger.warning("⚠️ GEMINI_API_KEY not set")
-        return None
+        logger.warning("⚠️ GEMINI_API_KEY not set")
+        return (None, "none")
+    
+    normalized_party = normalize_party_name(party)
+    
+    prompt_template_str = config.SYSTEM_PROMPTS.get(normalized_party)
+    if not prompt_template_str:
+        prompt_template_str = config.SYSTEM_PROMPTS.get(party)
+    if not prompt_template_str:
+        prompt_template_str = "Soruyu yanıtla: {question}"
 
+    prompt_template = PromptTemplate.from_template(prompt_template_str)
+    
     try:
         llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash",
             api_key=api_key,
-            temperature=0.7,
-            convert_system_message_to_human=True
+            temperature=config.LLM_TEMPERATURE,
         )
         llm.invoke("test")
-        utils.logger.info("✅ Gemini bağlantısı başarılı")
-        return llm
+        
+        chain = prompt_template | llm | StrOutputParser()
+        logger.info("✅ Gemini bağlandı (Birincil LLM)")
+        return (chain, "gemini")
     except Exception as e:
-        utils.logger.error(f"❌ Gemini hatası: {str(e)}")
-        return None
+        logger.warning(f"⚠️ Gemini bağlantısı başarısız: {e}")
+        return (None, "none")
 
 
-def query_with_gemini(llm: Any, prompt: str, stream: bool = False) -> Any:
+def setup_ollama_chain(party: str) -> Tuple[Any, str]:
     """
-    Gemini API'ye sorgula.
+    Ollama LLM için chain oluşturur (Yedek).
 
     Args:
-        llm: ChatGoogleGenerativeAI instance
-        prompt: Sorgu metni.
-        stream: Stream modu
+        party: Hedef parti kodu.
 
     Returns:
-        Any: LLM cevabı
+        Tuple[Any, str]: (handler, llm_type)
     """
+    normalized_party = normalize_party_name(party)
+    
+    prompt_template_str = config.SYSTEM_PROMPTS.get(normalized_party)
+    if not prompt_template_str:
+        prompt_template_str = config.SYSTEM_PROMPTS.get(party)
+    if not prompt_template_str:
+        prompt_template_str = "Soruyu yanıtla: {question}"
+
+    prompt_template = PromptTemplate.from_template(prompt_template_str)
+    
+    ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    model = os.getenv("OLLAMA_MODEL", config.LLM_MODEL)
+    
+    llm = OllamaLLM(
+        model=model, 
+        temperature=config.LLM_TEMPERATURE,
+        base_url=ollama_base_url,
+        num_predict=config.LLM_MAX_TOKENS,
+    )
+    
     try:
-        if stream:
-            return llm.stream(prompt)
-        response = llm.invoke(prompt)
-        return str(response.content) if hasattr(response, 'content') else str(response)
+        llm.invoke("test", num_predict=5)
     except Exception as e:
-        utils.logger.error(f"Gemini sorgu hatası: {str(e)}")
-        return None
-        return None
+        logger.warning(f"⚠️ Ollama test bağlantısı başarısız: {e}")
+    
+    chain = prompt_template | llm | StrOutputParser()
+    logger.info("✅ Ollama bağlandı (Yedek LLM)")
+    return (chain, "ollama")
 
 
 def create_llm_handler(party: str) -> Tuple[Any, str]:
     """
-    LLM handler oluşturur (fallback destekli).
-
-    Önce Ollama dener, başarısız olursa Gemini'ye geçer.
-    O da başarısız olursa HuggingFace'e geçer.
-    Hepsi başarısız olursa None döner.
+    LLM handler oluşturur.
+    
+    Önce Gemini dener, başarısız olursa Ollama'ya geçer.
 
     Args:
         party: Hedef parti kodu.
 
     Returns:
-        Tuple[Any, str]: (handler/config, llm_type)
+        Tuple[Any, str]: (handler, llm_type)
     """
+    # Önce Gemini dene
     try:
-        handler = setup_ollama_chain(party)
-        return (handler, "ollama")
-    except Exception as ollama_error:
-        utils.logger.warning(f"⚠️ Ollama başarısız, Gemini deneniyor: {ollama_error}")
-
+        handler, llm_type = setup_gemini_chain(party)
+        if handler is not None:
+            return (handler, llm_type)
+    except Exception as e:
+        logger.warning(f"⚠️ Gemini başarısız, Ollama deneniyor: {e}")
+    
+    # Yedek: Ollama
     try:
-        gemini_llm = setup_gemini()
-        if gemini_llm:
-            return (gemini_llm, "gemini")
-    except Exception as gemini_error:
-        utils.logger.warning(f"⚠️ Gemini başarısız, HuggingFace deneniyor: {gemini_error}")
-
-    try:
-        hf_config = setup_huggingface_config()
-        if hf_config:
-            return (hf_config, "huggingface")
-    except Exception as hf_error:
-        utils.logger.error(f"❌ HuggingFace hatası: {hf_error}")
-
-    utils.logger.error("❌ Hiç LLM kullanılamıyor!")
+        handler, llm_type = setup_ollama_chain(party)
+        if handler is not None:
+            return (handler, llm_type)
+    except Exception as e:
+        logger.error(f"❌ Ollama da başarısız: {e}")
+    
+    logger.error("❌ Hiç LLM kullanılamıyor!")
     return (None, "none")
 
 
@@ -202,15 +137,49 @@ def get_llm_display_name(llm_type: str) -> str:
     LLM tipi için kullanıcı dostu görünen ad döner.
 
     Args:
-        llm_type: LLM tipi ("ollama", "huggingface", "gemini", "none")
+        llm_type: LLM tipi
 
     Returns:
         str: Görünen ad
     """
     display_names = {
-        "ollama": "Lokal (Ollama)",
-        "huggingface": "Bulut (HF)",
-        "gemini": "Gemini",
+        "gemini": "Gemini 1.5 Flash (Birincil)",
+        "ollama": "Ollama (Yedek)",
         "none": "LLM Yok",
     }
     return display_names.get(llm_type, "Bilinmiyor")
+
+
+def check_llm_status() -> Dict[str, Any]:
+    """
+    LLM durumlarını kontrol eder.
+    
+    Returns:
+        Dict: Durum bilgileri
+    """
+    status = {
+        "gemini": {"available": False, "error": None},
+        "ollama": {"available": False, "error": None},
+    }
+    
+    # Gemini kontrolü
+    try:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if api_key:
+            llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=api_key)
+            llm.invoke("test", max_tokens=5)
+            status["gemini"]["available"] = True
+    except Exception as e:
+        status["gemini"]["error"] = str(e)
+    
+    # Ollama kontrolü
+    try:
+        ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+        model = os.getenv("OLLAMA_MODEL", config.LLM_MODEL)
+        llm = OllamaLLM(model=model, base_url=ollama_base_url)
+        llm.invoke("test", num_predict=5)
+        status["ollama"]["available"] = True
+    except Exception as e:
+        status["ollama"]["error"] = str(e)
+    
+    return status

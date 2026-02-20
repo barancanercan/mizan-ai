@@ -203,7 +203,7 @@ with st.sidebar:
 
     # Footer links
     st.caption(
-        "**[GitHub](https://github.com/barancanercan/Turkish-Government-Intelligence-Hub) • "
+        "**[GitHub](https://github.com/barancanercan/mizan-ai) • "
         "[LinkedIn](https://linkedin.com/in/barancanercan) • "
         "[Medium](https://barancanercan.medium.com)**"
     )
@@ -233,8 +233,8 @@ llm_handler, llm_type = setup_llm()
 # MAIN CONTENT - PAGE TITLE + TABS
 # ============================================
 
-st.title("🇹🇷 Türk Siyasi Partileri Bilgi Sistemi")
-st.markdown("Açık Kaynak • Ücretsiz • 100% Türkçe")
+st.title("Ulak-AI Türk Siyasi Partileri Bilgi Sistemi")
+st.markdown("Açık Kaynak • Ücretsiz • 100% Türkçe" )
 
 st.markdown("---")
 
@@ -270,10 +270,10 @@ with tab_soru:
         st.markdown("### Sorunuzu Yazın")
 
     with col_status:
-        if llm_type == "ollama":
-            st.success("🔌 Lokal (Ollama)")
-        elif llm_type == "huggingface":
-            st.info("☁️ Bulut (HF)")
+        if llm_type == "gemini":
+            st.success("⚡ Gemini 1.5 Flash")
+        elif llm_type == "ollama":
+            st.info("🔌 Ollama (Yedek)")
         else:
             st.error("⚠️ LLM Yok")
 
@@ -302,7 +302,7 @@ with tab_soru:
         if not question.strip():
             st.warning("Lütfen bir soru yazın")
         elif llm_type == "none":
-            st.error("LLM yapılandırılmamış! Ollama başlatın veya GEMINI_API_KEY ayarlayın")
+            st.error("LLM çalışmıyor! GEMINI_API_KEY veya Ollama ayarlayın")
         else:
             with st.spinner(f"{selected_party} araştırılıyor..."):
                 try:
@@ -310,7 +310,7 @@ with tab_soru:
                     vs = get_cached_vectorstore()
 
                     # Stream Generator
-                    response_gen, source_docs = ask_question(
+                    response_gen, source_docs, intent, web_results = ask_question(
                         question,
                         vs,
                         llm_handler,
@@ -324,6 +324,13 @@ with tab_soru:
                             yield handle_stream_response(chunk, llm_type)
 
                     st.write_stream(stream_container)
+
+                    # Show intent analysis
+                    if intent:
+                        with st.expander("🎯 Niyet Analizi"):
+                            st.write(f"**Tip:** {intent.intent_type}")
+                            st.write(f"**Güven:** {intent.confidence:.2f}")
+                            st.write(f"**Web Araması:** {'Evet' if intent.needs_web_search else 'Hayır'}")
 
                     # Source Expander
                     if source_docs:
@@ -339,6 +346,15 @@ with tab_soru:
                                 """,
                                     unsafe_allow_html=True,
                                 )
+                    
+                    # Show web results if available
+                    if web_results:
+                        with st.expander("🌐 Web Sonuçları", expanded=True):
+                            for i, r in enumerate(web_results[:3], 1):
+                                st.markdown(f"**{i}. {r.title}**")
+                                st.write(r.snippet)
+                                st.markdown(f"[Kaynak]({r.url})")
+                                st.markdown("---")
 
                 except Exception as e:
                     st.error(f"Hata oluştu: {str(e)[:150]}")
@@ -377,7 +393,7 @@ with tab_compare:
 
                     with st.spinner(f"{p_code} yanıt veriyor..."):
                         try:
-                            resp, docs = ask_question(
+                            resp, docs, _, _ = ask_question(
                                 compare_question, vs, llm_handler, p_code, llm_type, stream=False
                             )
                             st.info(resp)
@@ -427,7 +443,7 @@ with tab_hakkinda:
     - **Vektör:** Turkish BGE-M3
     
     **Bağlantılar**
-    - [GitHub](https://github.com/barancanercan/Turkish-Government-Intelligence-Hub)
+    - [GitHub](https://github.com/barancanercan/mizan-ai)
     """
     )
 
@@ -440,7 +456,7 @@ st.markdown(
     f"""
     <div style="text-align: center; margin-top: 2rem;">
         <p style="font-size: 0.85rem; color: gray;">
-        🇹🇷 Açık Kaynak • {len(prepared_parties)} Parti • Made with ❤️ by Baran Can Ercan
+        🇹🇷 Açık Kaynak • {len(prepared_parties)} Parti • Made with ❤️ by Baran Can Ercan for Betül Kurt 🍓 
         </p>
     </div>
     """,

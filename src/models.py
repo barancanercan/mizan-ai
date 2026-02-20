@@ -35,7 +35,7 @@ class AppConfig(BaseModel):
     llm_model: str = "qwen2.5:7b"
     chunk_size: int = 512
     chunk_overlap: int = 50
-    top_k: int = 3
-    similarity_threshold: float = 0.5
-    llm_temperature: float = 0.3
+    top_k: int = 5
+    similarity_threshold: float = 0.7
+    llm_temperature: float = 0.2
     llm_max_tokens: int = 1024

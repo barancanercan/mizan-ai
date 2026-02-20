@@ -6,7 +6,7 @@ print("=" * 70)
 print("🔍 DIAGNOSTIC: Picture Folder Check")
 print("=" * 70)
 
-picture_dir = Path("/home/baran/Desktop/Turkish-Government-Intelligence-Hub/picture")
+picture_dir = Path("/home/baran/Desktop/mizan-ai/picture")
 
 if not picture_dir.exists():
     print(f"❌ {picture_dir} bulunamadı!")
@@ -48,7 +48,7 @@ print("Prepared Parties Check")
 print("=" * 70)
 
 # Check data folder for PDFs
-data_dir = Path("/home/baran/Desktop/Turkish-Government-Intelligence-Hub/data")
+data_dir = Path("/home/baran/Desktop/mizan-ai/data")
 if data_dir.exists():
     pdfs = sorted(data_dir.glob("*.pdf"))
     print(f"\nFound {len(pdfs)} PDFs in /data:\n")

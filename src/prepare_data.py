@@ -170,10 +170,10 @@ def prepare_all_parties() -> None:
 
         shutil.rmtree(config.UNIFIED_VECTOR_DB)
 
-    # Her parti için işlem yap
+    # Her parti için işlem yap (force=True çünkü DB silindi)
     success_count = 0
     for party in available_parties:
-        if prepare_party_data(party, embeddings):
+        if prepare_party_data(party, embeddings, force=True):
             success_count += 1
 
     utils.print_header("📊 VERİ HAZIRLAMA ÖZETİ")

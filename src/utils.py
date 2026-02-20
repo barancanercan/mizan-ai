@@ -335,17 +335,20 @@ def get_prepared_parties() -> List[str]:
 
 def print_header(text: str, width: int = 60):
     """Başlık yazdır"""
-    print("\n" + "=" * width)
-    print(text.center(width))
-    print("=" * width)
+    import sys
+    safe_text = text.encode('ascii', errors='replace').decode('ascii')
+    print("\n" + "=" * width, file=sys.stderr)
+    print(safe_text.center(width), file=sys.stderr)
+    print("=" * width, file=sys.stderr)
 
 
 def print_party_info(party: str):
     """Parti bilgilerini yazdır"""
+    import sys
     info = config.PARTY_INFO.get(party)
     if info:
-        print(f"\n{info.get('hex_color', '#0066FF')} {info['name']} ({info['short']})")
-        print(f"🌐 Website: {info['website']}")
+        print(f"\n{info.get('hex_color', '#0066FF')} {info['name']} ({info['short']})", file=sys.stderr)
+        print(f"Website: {info['website']}", file=sys.stderr)
 
 
 # ============================================

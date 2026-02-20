@@ -6,7 +6,7 @@ Run this BEFORE starting streamlit
 
 from pathlib import Path
 
-PROJECT_ROOT = Path("/home/baran/Desktop/Turkish-Government-Intelligence-Hub")
+PROJECT_ROOT = Path("/home/baran/Desktop/mizan-ai")
 DATA_DIR = PROJECT_ROOT / "data"
 VECTOR_DB_DIR = PROJECT_ROOT / "vector_db"
 

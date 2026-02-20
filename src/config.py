@@ -288,8 +288,8 @@ class SourceWhitelist:
 
 CHUNK_SIZE: int = 512
 CHUNK_OVERLAP: int = 50
-TOP_K: int = 3
-SIMILARITY_THRESHOLD: float = 0.3  # ChromaDB similarity (yüksek = iyi)
+TOP_K: int = 5
+SIMILARITY_THRESHOLD: float = 0.75  # ChromaDB L2: düşük=benzer, >0.75 kötü eşleşme → web ara
 
 # Unified Database Configuration
 UNIFIED_VECTOR_DB: Path = VECTOR_DB_DIR / "unified_parties_db"
